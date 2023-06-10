@@ -6,7 +6,7 @@ require("dotenv").config();
 const stripe = require("stripe")(process.env.PAYMENT_SECRET_KEY);
 const port = process.env.PORT || 5000;
 
-// Middl ere
+// Middlere
 
 app.use(cors());
 app.use(express.json());
@@ -35,6 +35,10 @@ async function run() {
     const selectedCollection = client.db("summerDB").collection("selected");
     const usersCollection = client.db("summerDB").collection("users");
 
+
+
+
+    
     app.get("/users", async (req, res) => {
       const result = await usersCollection.find().toArray();
       res.send(result);
