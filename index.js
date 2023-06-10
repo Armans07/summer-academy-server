@@ -1,11 +1,12 @@
 const express = require("express");
 const app = express();
 const cors = require("cors");
+const jwt = require('jsonwebtoken')
 require("dotenv").config();
 const stripe = require("stripe")(process.env.PAYMENT_SECRET_KEY);
 const port = process.env.PORT || 5000;
 
-// Middlewere
+// Middl ere
 
 app.use(cors());
 app.use(express.json());
@@ -34,9 +35,44 @@ async function run() {
     const selectedCollection = client.db("summerDB").collection("selected");
     const usersCollection = client.db("summerDB").collection("users");
 
+    app.get("/users", async (req, res) => {
+      const result = await usersCollection.find().toArray();
+      res.send(result);
+    });
+
     app.post("/users", async (req, res) => {
       const user = req.body;
+      const query = { email: user.email };
+      const existingUser = await usersCollection.findOne(query);
+      if (existingUser) {
+        return res.send({ message: "User already exist" });
+      }
       const result = await usersCollection.insertOne(user);
+      res.send(result);
+    });
+
+    app.patch("/users/admin/:id", async (req, res) => {
+      const id = req.params.id;
+      const filter = { _id: new ObjectId(id) };
+      const updateDoc = {
+        $set: {
+          role: 'admin',
+        },
+      };
+      const result = await usersCollection.updateOne(filter, updateDoc);
+      res.send(result);
+    });
+
+
+    app.patch("/users/instructor/:id", async (req, res) => {
+      const id = req.params.id;
+      const filter = { _id: new ObjectId(id) };
+      const updateDoc = {
+        $set: {
+          role: 'instructor',
+        },
+      };
+      const result = await usersCollection.updateOne(filter, updateDoc);
       res.send(result);
     });
 
@@ -54,7 +90,7 @@ async function run() {
       const body = req.body;
       body.createdAt = new Date();
 
-      const result = await instructorsCollection.insertOne(body);
+      const result = await classCollection.insertOne(body);
       console.log(result);
       if (!body) {
         return res.status(404).send({ message: "body data not found" });
