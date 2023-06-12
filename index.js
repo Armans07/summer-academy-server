@@ -215,6 +215,12 @@ app.get("/addclass/:email", async (req, res) => {
     .toArray();
   res.send(result);
 });
+app.get("/loadedclass/:email", async (req, res) => {
+  const result = await classCollection
+    .find({ email: req.params.email })
+    .toArray();
+  res.send(result);
+});
 
 /*------------------------------------------------------------------------------*/
 
