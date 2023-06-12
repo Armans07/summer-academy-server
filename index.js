@@ -76,7 +76,7 @@ async function run() {
         next();
       }
 
-    app.get("/users", verifyJWT,verifyAdmin, async (req, res) => {
+    app.get("/users", verifyJWT, async (req, res) => {
       const result = await usersCollection.find().toArray();
       res.send(result);
     });
@@ -198,7 +198,7 @@ async function run() {
       res.send(result);
     });
 
-    app.post("/create-payment-intent", async (req, res) => {
+    app.post("/create-payment-intent", verifyJWT, async (req, res) => {
       const { price } = req.body;
       const amount = parseInt(price * 100);
       const paymentIntent = await stripe.paymentIntents.create({
@@ -211,6 +211,12 @@ async function run() {
         clientSecret: paymentIntent.client_secret,
       });
     });
+
+
+
+    app.post('/payments',async (req,res)=>{
+        const payment = req.body;
+    })
 
     // Send a ping to confirm a successful connection
     await client.db("admin").command({ ping: 1 });
