@@ -56,6 +56,7 @@ async function run() {
       .collection("instructors");
     const selectedCollection = client.db("summerDB").collection("selected");
     const usersCollection = client.db("summerDB").collection("users");
+    const paymentCollection = client.db("summerDB").collection("payments");
 
     app.post("/jwt", (req, res) => {
       const user = req.body;
@@ -67,14 +68,18 @@ async function run() {
     });
 
     const verifyAdmin = async (req, res, next) => {
-        const email = req.decoded.email;
-        const query = { email: email }
-        const user = await usersCollection.findOne(query);
-        if (user?.role !== 'admin') {
-          return res.status(403).send({ error: true, message: 'forbidden message' });
-        }
-        next();
+      const email = req.decoded.email;
+      const query = { email: email };
+      const user = await usersCollection.findOne(query);
+      if (user?.role !== "admin") {
+        return res
+          .status(403)
+          .send({ error: true, message: "forbidden message" });
       }
+      next();
+    };
+
+    // User Collections
 
     app.get("/users", verifyJWT, async (req, res) => {
       const result = await usersCollection.find().toArray();
@@ -92,6 +97,10 @@ async function run() {
       res.send(result);
     });
 
+    /*----------------------------------------------------------------------------------------*/
+
+    // User Admin collection
+
     app.patch("/users/admin/:id", async (req, res) => {
       const id = req.params.id;
       const filter = { _id: new ObjectId(id) };
@@ -104,33 +113,34 @@ async function run() {
       res.send(result);
     });
 
+    app.get("/users/admin/:email", verifyJWT, async (req, res) => {
+      const email = req.params.email;
 
+      if (req.decoded.email !== email) {
+        res.send({ admin: false });
+      }
+      const query = { email: email };
+      const user = await usersCollection.findOne(query);
+      const result = { admin: user?.role === "admin" };
+      res.send(result);
+    });
 
-    app.get('/users/admin/:email', verifyJWT, async (req, res) => {
-        const email = req.params.email;
-  
-        if (req.decoded.email !== email) {
-          res.send({ admin: false })
-        }
-        const query = { email: email }
-        const user = await usersCollection.findOne(query);
-        const result = { admin: user?.role === 'admin' }
-        res.send(result);
-      })
+    /*/----------------------------------------------------------------------------------------------*/
 
-    app.get('/users/instructors/:email', verifyJWT, async (req, res) => {
-        const email = req.params.email;
-  
-        if (req.decoded.email !== email) {
-          res.send({ instructors: false })
-        }
-  
-        const query = { email: email }
-        const user = await instructorsCollection.findOne(query);
-        const result = { instructors: user?.role === 'instructors' }
-        res.send(result);
-      })
+    // User Instructor Collections
 
+    app.get("/users/instructors/:email", verifyJWT, async (req, res) => {
+      const email = req.params.email;
+      console.log(req.decoded);
+      if (req.decoded.email !== email) {
+        res.send({ instructors: false });
+      }
+      const query = { email: email };
+      const user = await usersCollection.findOne(query);
+      console.log(user);
+      const result = { instructors: user?.role === "instructor" };
+      res.send(result);
+    });
 
     app.patch("/users/instructor/:id", async (req, res) => {
       const id = req.params.id;
@@ -144,13 +154,47 @@ async function run() {
       res.send(result);
     });
 
-    app.get("/classes", async (req, res) => {
-      const result = await classCollection.find().toArray();
-      res.send(result);
-    });
 
     app.get("/instructors", async (req, res) => {
       const result = await instructorsCollection.find().toArray();
+      res.send(result);
+    });
+
+
+    /*-----------------------------------------------------------------------------------------*/
+
+    // Class Collections
+
+
+    app.patch("/class/approved/:id", async (req, res) => {
+        const id = req.params.id;
+        const filter = { _id: new ObjectId(id) };
+        const updateDoc = {
+          $set: {
+            role: "approved",
+          },
+        };
+        const result = await classCollection.updateOne(filter, updateDoc);
+        res.send(result);
+      });
+
+    app.patch("/class/denied/:id", async (req, res) => {
+        const id = req.params.id;
+        const filter = { _id: new ObjectId(id) };
+        const updateDoc = {
+          $set: {
+            role: "denied",
+          },
+        };
+        const result = await classCollection.updateOne(filter, updateDoc);
+        res.send(result);
+      });
+
+
+
+
+    app.get("/classes", async (req, res) => {
+      const result = await classCollection.find().toArray();
       res.send(result);
     });
 
@@ -165,6 +209,15 @@ async function run() {
       }
       res.send(result);
     });
+
+    app.get("/addclass/:email", async (req, res) => {
+      const result = await classCollection
+        .find({ email: req.params.email })
+        .toArray();
+      res.send(result);
+    });
+
+    /*------------------------------------------------------------------------------*/
 
     // Selected collection
 
@@ -198,6 +251,10 @@ async function run() {
       res.send(result);
     });
 
+    /*------------------------------------------------------------------------------*/
+
+    // Pyment collections
+
     app.post("/create-payment-intent", verifyJWT, async (req, res) => {
       const { price } = req.body;
       const amount = parseInt(price * 100);
@@ -212,17 +269,23 @@ async function run() {
       });
     });
 
-
-
-    app.post('/payments',async (req,res)=>{
-        const payment = req.body;
-    })
+    app.post("/payments", async (req, res) => {
+      const payment = req.body;
+      const insertResult = await paymentCollection.insertOne(payment);
+      const query = {
+        _id: { $in: payment.classItems.map((id) => new ObjectId(id)) },
+      };
+      const deleteResult = await classCollection.deleteMany(query);
+      res.send({ result: insertResult, deleteResult });
+    });
 
     // Send a ping to confirm a successful connection
     await client.db("admin").command({ ping: 1 });
     console.log(
       "Pinged your deployment. You successfully connected to MongoDB!"
     );
+
+    /**-------------------------------------------------------------------*/
   } finally {
     // Ensures that the client will close when you finish/error
     // await client.close();
